@@ -12,48 +12,61 @@ case object nextNeighbour
 /**
  * @author Alok
  */
-class GossipNode(masterNode : MasterNode) extends Actor {
-	val log = Logging(context.system, this)
+class GossipNode extends Actor {
 
-			def receive = {
-			case `rumour` => {
-				println(self.path.name + " received rumour.")
-        // increment counter
-        //send to a neighbour
-			}
+	val log = Logging(context.system, this)
+	var rumourCount = 0
+	def receive = {
+	    case `rumour` => {
+		    println(self.path.name + " received rumour.")
+		    rumourCount = rumourCount + 1
+
+		    if (rumourCount != 10){
+                //send to a neighbor if counter not 10
+                sender ! nextNeighbour
+		    }
+    		
+	    }
 	}
 }
 
 class MasterNode(numberOfNodes : Int) extends Actor {
-  val system = ActorSystem("HelloSystem")
-  var nodesArray = new Array[ActorRef](numberOfNodes)
-  
-  //Topology for Full Network and for Line.
+	var nodesArray = new Array[ActorRef](numberOfNodes)
+	val system = ActorSystem("HelloSystem")
+    var topology = "line"
+    
+	//Topology for Full Network and for Line.
 	for ( i <- 0 to numberOfNodes - 1) {
-		var gossipNode = system.actorOf(Props(new GossipNode(this)), name = "gossipNode" + i)
+		var gossipNode = system.actorOf(Props[GossipNode], name = "gossipNode" + i)
 		// add nodes to an array
 		nodesArray(i) = gossipNode
 	}
 
-	//pick one random actor and send rumour.
+	//pick one random actor and start rumor.
 	val randomActor = Random.shuffle(nodesArray.toList).head
 	def receive = {
-    case `execute` => {
-      randomActor ! rumour
+		case `execute` => {
+		    randomActor ! rumour
+	    }
+
+		case `nextNeighbour` => {
+			//fetch a random neighbor from the topology and send the rumor.
 		}
-    
-    case `nextNeighbour` => {
-      //fetch a random neighbour from the topology and send the rumour.
-    }
 	}
+    
+    def fetchNeighbour(node : ActorRef) : Unit = {
+        if(topology.equals("line")) {
+            
+        }
+    }
 }
 
 object Main {
 	def main(args: Array[String]) : Unit = {
-			var numOfNodes = args(0).toInt
-			val system = ActorSystem("HelloSystem")
-			var masterNode = system.actorOf(Props(new MasterNode(numOfNodes)), name = "master")
-      
-      masterNode ! execute
+	    var numOfNodes = args(0).toInt
+	    val system = ActorSystem("HelloSystem")
+	    var masterNode = system.actorOf(Props(new MasterNode(numOfNodes)), name = "master")
+
+	    masterNode ! execute
 	}
 }
