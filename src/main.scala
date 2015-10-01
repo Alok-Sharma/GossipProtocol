@@ -21,7 +21,7 @@ class GossipNode extends Actor {
 		    println(self.path.name + " received rumour.")
 		    rumourCount = rumourCount + 1
 
-		    if (rumourCount != 10){
+		    if (rumourCount != 2){
                 //send to a neighbor if counter not 10
                 sender ! nextNeighbour
 		    }
@@ -42,22 +42,31 @@ class MasterNode(numberOfNodes : Int) extends Actor {
 		nodesArray(i) = gossipNode
 	}
 
-	//pick one random actor and start rumor.
-	val randomActor = Random.shuffle(nodesArray.toList).head
 	def receive = {
 		case `execute` => {
+            //pick one random actor and start rumor.
+            val randomActor = Random.shuffle(nodesArray.toList).head
 		    randomActor ! rumour
 	    }
 
 		case `nextNeighbour` => {
 			//fetch a random neighbor from the topology and send the rumor.
+            var randomNeighbor = fetchNeighbour(sender)
+            randomNeighbor ! rumour
 		}
 	}
     
-    def fetchNeighbour(node : ActorRef) : Unit = {
+    def fetchNeighbour(node : ActorRef) : ActorRef = {
         if(topology.equals("line")) {
+            var currentIndex = nodesArray.indexOf(node)
+            var leftNeighbor = nodesArray(currentIndex - 1)
+            var rightNeighbor = nodesArray(currentIndex + 1)
+            var adjacency = Array(leftNeighbor, rightNeighbor)
             
+            val randomNeighbor = Random.shuffle(adjacency.toList).head
+            return randomNeighbor
         }
+        return null
     }
 }
 
