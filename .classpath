@@ -47,5 +47,7 @@
 	<classpathentry kind="lib" path="D:/Academics/DoS/Code/GossipProtocol/akka/slf4j-api-1.7.5.jar"/>
 	<classpathentry kind="lib" path="D:/Academics/DoS/Code/GossipProtocol/akka/uncommons-maths-1.2.2a.jar"/>
 	<classpathentry kind="lib" path="D:/Academics/DoS/Code/GossipProtocol/akka/zeromq-scala-binding_2.11-0.0.7-spark.jar"/>
+	<classpathentry kind="con" path="org.scala-ide.sdt.launching.SCALA_CONTAINER"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
