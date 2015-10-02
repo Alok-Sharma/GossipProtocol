@@ -31,15 +31,10 @@ class GossipNode extends Actor {
 class MasterNode(numberOfNodes : Int) extends Actor {
 	var nodesArray = new Array[ActorRef](numberOfNodes)
 	val system = ActorSystem("HelloSystem")
-    var topology = "full"
-    
-	//Topology for Full Network and for Line.
-	for ( i <- 0 to numberOfNodes - 1) {
-		var gossipNode = system.actorOf(Props[GossipNode], name = "gossipNode" + i)
-		// add nodes to an array
-		nodesArray(i) = gossipNode
-	}
+    var topology = "line"
+    buildTopology()    
 
+    println("inside master")
 	def receive = {
 		case `execute` => {
             //pick one random actor and start rumor.
@@ -53,6 +48,17 @@ class MasterNode(numberOfNodes : Int) extends Actor {
             randomNeighbor ! rumour
 		}
 	}
+    
+    def buildTopology() : Unit = {
+	    if(topology.equals("line")) {
+		    for ( i <- 0 to numberOfNodes - 1) {
+			    var gossipNode = system.actorOf(Props[GossipNode], name = "gossipNode" + i)
+				// add nodes to an array
+				nodesArray(i) = gossipNode
+		    }
+	    }
+        //add more for 3D grids
+    }
     
     def fetchNeighbour(node : ActorRef) : ActorRef = {
         if(topology.equals("line")) {
