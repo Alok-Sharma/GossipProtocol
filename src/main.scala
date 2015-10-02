@@ -13,7 +13,6 @@ case object nextNeighbour
  * @author Alok
  */
 class GossipNode extends Actor {
-
 	val log = Logging(context.system, this)
 	var rumourCount = 0
 	def receive = {
@@ -21,11 +20,10 @@ class GossipNode extends Actor {
 		    println(self.path.name + " received rumour.")
 		    rumourCount = rumourCount + 1
 
-		    if (rumourCount != 2){
-                //send to a neighbor if counter not 10
+		    if (rumourCount != 4){
+                //send to a neighbor
                 sender ! nextNeighbour
 		    }
-    		
 	    }
 	}
 }
@@ -33,7 +31,7 @@ class GossipNode extends Actor {
 class MasterNode(numberOfNodes : Int) extends Actor {
 	var nodesArray = new Array[ActorRef](numberOfNodes)
 	val system = ActorSystem("HelloSystem")
-    var topology = "line"
+    var topology = "full"
     
 	//Topology for Full Network and for Line.
 	for ( i <- 0 to numberOfNodes - 1) {
@@ -59,11 +57,24 @@ class MasterNode(numberOfNodes : Int) extends Actor {
     def fetchNeighbour(node : ActorRef) : ActorRef = {
         if(topology.equals("line")) {
             var currentIndex = nodesArray.indexOf(node)
-            var leftNeighbor = nodesArray(currentIndex - 1)
-            var rightNeighbor = nodesArray(currentIndex + 1)
-            var adjacency = Array(leftNeighbor, rightNeighbor)
-            
-            val randomNeighbor = Random.shuffle(adjacency.toList).head
+            var leftIndex = currentIndex - 1
+            var rightIndex = currentIndex + 1
+            if (currentIndex == 0) {
+                var rightNeighbor = nodesArray(currentIndex + 1) //will fail if only one element.
+                return rightNeighbor
+            } else if (currentIndex == numberOfNodes - 1) {
+                var leftNeighbor = nodesArray(currentIndex - 1)
+                return leftNeighbor
+            } else {
+                var leftNeighbor = nodesArray(currentIndex - 1)
+                var rightNeighbor = nodesArray(currentIndex + 1)
+                var adjacencyArray = Array(leftNeighbor, rightNeighbor)
+                val randomNeighbor = Random.shuffle(adjacencyArray.toList).head
+                return randomNeighbor
+            }
+        } else if(topology.equals("full")) {
+            var adjacencyArray = nodesArray.filter { (x:ActorRef) => x != node }
+            val randomNeighbor = Random.shuffle(adjacencyArray.toList).head
             return randomNeighbor
         }
         return null
