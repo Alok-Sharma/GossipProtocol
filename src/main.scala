@@ -31,7 +31,7 @@ class GossipNode extends Actor {
 class MasterNode(numberOfNodes : Int) extends Actor {
 	var nodesArray = new Array[ActorRef](numberOfNodes)
 	val system = ActorSystem("HelloSystem")
-    var topology = "line"
+    var topology = "3d"
     buildTopology()    
 
     println("inside master")
@@ -50,7 +50,7 @@ class MasterNode(numberOfNodes : Int) extends Actor {
 	}
     
     def buildTopology() : Unit = {
-	    if(topology.equals("line")) {
+	    if(topology.equals("line") || topology.equals("full")) {
 		    for ( i <- 0 to numberOfNodes - 1) {
 			    var gossipNode = system.actorOf(Props[GossipNode], name = "gossipNode" + i)
 				// add nodes to an array
@@ -59,6 +59,11 @@ class MasterNode(numberOfNodes : Int) extends Actor {
 	    }
         //add more for 3D grids
     }
+    
+    //test 3d array
+    val cubeRoot = 5
+    val x, y, z = cubeRoot
+    val testArray = Array.ofDim[ActorRef](x,y,z)
     
     def fetchNeighbour(node : ActorRef) : ActorRef = {
         if(topology.equals("line")) {
@@ -78,9 +83,41 @@ class MasterNode(numberOfNodes : Int) extends Actor {
                 val randomNeighbor = Random.shuffle(adjacencyArray.toList).head
                 return randomNeighbor
             }
-        } else if(topology.equals("full")) {
+        } else if (topology.equals("full")) {
             var adjacencyArray = nodesArray.filter { (x:ActorRef) => x != node }
             val randomNeighbor = Random.shuffle(adjacencyArray.toList).head
+            return randomNeighbor
+        } else if (topology.equals("3d")) {
+            var adjacencyArray = new Array[ActorRef](6)
+            var nodeName = node.path.name
+            var curX = nodeName.substring(10, 11).toInt
+            var curY = nodeName.substring(11, 12).toInt
+            var curZ = nodeName.substring(12, 13).toInt
+
+            //x-1, x+1, y-1, y+1, z-1, z+1
+            if (curX - 1 >= 0) {
+                adjacencyArray(0) = testArray(curX - 1)(curY)(curZ)
+            }
+            if (curX + 1 < cubeRoot) {
+                adjacencyArray(1) = testArray(curX + 1)(curY)(curZ)
+            }
+            if (curY - 1 >= 0) {
+                adjacencyArray(2) = testArray(curX)(curY - 1)(curZ)
+            }
+            if(curY + 1 < cubeRoot) { 
+                adjacencyArray(3) = testArray(curX)(curY + 1)(curZ)
+            }
+            if(curZ - 1 >= 0) {
+                adjacencyArray(4) = testArray(curX)(curY)(curZ - 1)
+            }
+            if(curZ + 1 < cubeRoot) {
+                adjacencyArray(5) = testArray(curX)(curY)(curZ + 1)
+            }
+            
+            var randomNeighbor : ActorRef = null
+            while(randomNeighbor == null) {
+                randomNeighbor = Random.shuffle(adjacencyArray.toList).head
+            }
             return randomNeighbor
         }
         return null
