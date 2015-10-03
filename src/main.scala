@@ -40,15 +40,17 @@ class MasterNode(numberOfNodes : Int) extends Actor {
 	var nodesArray3D = Array.ofDim[ActorRef](cbrt.toInt, cbrt.toInt, cbrt.toInt)
 	
 	val system = ActorSystem("HelloSystem")
-	var topology = "3D"
+	var topology = "line"
 	buildTopology()    
 
 	println("inside master")
 	def receive = {
 		case `execute` => {
 			//pick one random actor and start rumor.
-			val randomActor = Random.shuffle(nodesArray.toList).head
-			randomActor ! rumour
+//			val randomActor = Random.shuffle(nodesArray.toList).head
+            val randomActor = Random.shuffle(nodesArray3D.toList).head.toList.head.toList.head
+            println(randomActor.path.name)
+//			randomActor ! rumour
 		}
 
 		case `nextNeighbour` => {
@@ -77,11 +79,6 @@ class MasterNode(numberOfNodes : Int) extends Actor {
             }
         }
     }
-    
-    //test 3d array
-    val cubeRoot = 5
-    val x, y, z = cubeRoot
-    val testArray = Array.ofDim[ActorRef](x,y,z)
     
     def fetchNeighbour(node : ActorRef) : ActorRef = {
         if(topology.equals("line")) {
@@ -114,22 +111,22 @@ class MasterNode(numberOfNodes : Int) extends Actor {
 
             //x-1, x+1, y-1, y+1, z-1, z+1
             if (curX - 1 >= 0) {
-                adjacencyArray(0) = testArray(curX - 1)(curY)(curZ)
+                adjacencyArray(0) = nodesArray3D(curX - 1)(curY)(curZ)
             }
-            if (curX + 1 < cubeRoot) {
-                adjacencyArray(1) = testArray(curX + 1)(curY)(curZ)
+            if (curX + 1 < cbrt) {
+                adjacencyArray(1) = nodesArray3D(curX + 1)(curY)(curZ)
             }
             if (curY - 1 >= 0) {
-                adjacencyArray(2) = testArray(curX)(curY - 1)(curZ)
+                adjacencyArray(2) = nodesArray3D(curX)(curY - 1)(curZ)
             }
-            if(curY + 1 < cubeRoot) { 
-                adjacencyArray(3) = testArray(curX)(curY + 1)(curZ)
+            if(curY + 1 < cbrt) { 
+                adjacencyArray(3) = nodesArray3D(curX)(curY + 1)(curZ)
             }
             if(curZ - 1 >= 0) {
-                adjacencyArray(4) = testArray(curX)(curY)(curZ - 1)
+                adjacencyArray(4) = nodesArray3D(curX)(curY)(curZ - 1)
             }
-            if(curZ + 1 < cubeRoot) {
-                adjacencyArray(5) = testArray(curX)(curY)(curZ + 1)
+            if(curZ + 1 < cbrt) {
+                adjacencyArray(5) = nodesArray3D(curX)(curY)(curZ + 1)
             }
             
             var randomNeighbor : ActorRef = null
