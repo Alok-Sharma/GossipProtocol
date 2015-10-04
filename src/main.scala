@@ -37,7 +37,7 @@ class GossipNode(topology : String) extends Actor {
 //			println(self.path.name + " received rumour.")
 			rumourCount = rumourCount + 1
 
-			if (rumourCount != 4){
+			if (rumourCount != 10){
 				sender ! nextNeighbour
 			} else {
                 println("Ratio: " + ratio)
@@ -75,19 +75,20 @@ class GossipNode(topology : String) extends Actor {
 }
 
 class MasterNode(numberOfNodes : Int, topology : String, algo : String) extends Actor {
-	var nodesArray = new Array[ActorRef](numberOfNodes)
+    val system = ActorSystem("HelloSystem")
+    var nodesArray : Array[ActorRef] = null
+    var nodesArray3D : Array[Array[Array[ActorRef]]] = null
 
 	//For 3D grid, we need to round up to the nearest cube of a number. 
 	//I'm finding the cube root and rounding up to get no. of rows in one dimension. 
 	var cbrt = math.cbrt(numberOfNodes)
 	cbrt = math.ceil(cbrt)
-	var nodesArray3D = Array.ofDim[ActorRef](cbrt.toInt, cbrt.toInt, cbrt.toInt)
 	
-	val system = ActorSystem("HelloSystem")
 	buildTopology()    
+    
 	val startTime = System.currentTimeMillis
-	println("Start time: " + startTime)
 	println("inside master")
+    
 	def receive = {
 		case `execute` => {
 			//pick one random actor and start rumor.
@@ -95,7 +96,7 @@ class MasterNode(numberOfNodes : Int, topology : String, algo : String) extends 
             if(topology.equals("line") || topology.equals("full")) {
                 randomActor = Random.shuffle(nodesArray.toList).head
             } else if(topology.equals("3D") || topology.equals("imp3D")) {
-                randomActor = Random.shuffle(nodesArray3D.toList).head.toList.head.toList.head
+                randomActor = Random.shuffle(Random.shuffle(Random.shuffle(nodesArray3D.toList).head.toList).head.toList).head //Super shuffle
             }
             
             if(algo.equals("gossip")) {
@@ -126,12 +127,14 @@ class MasterNode(numberOfNodes : Int, topology : String, algo : String) extends 
     
    def buildTopology() : Unit = {
         if(topology.equals("line") || topology.equals("full")) {
+            nodesArray = new Array[ActorRef](numberOfNodes)
             for ( i <- 0 to numberOfNodes - 1) {
                 var gossipNode = system.actorOf(Props(new GossipNode(topology)), name = "gossipNode" + i)
                 // add nodes to an array
                 nodesArray(i) = gossipNode
             }
         } else if (topology.equals("3D") || topology.equals("imp3D")){
+            nodesArray3D = Array.ofDim[ActorRef](cbrt.toInt, cbrt.toInt, cbrt.toInt)
             var nodeCount = 0
             for(i<- 0 to cbrt.toInt - 1) {
                 for(j <- 0 to cbrt.toInt - 1) {
