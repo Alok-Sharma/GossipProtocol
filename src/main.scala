@@ -12,8 +12,16 @@ case class pushSum(s :Double, w :Double)
 case object done
 
 class GossipNode(topology : String) extends Actor {
-	val log = Logging(context.system, this)
-    var s = 0.0
+    
+	//following variables are for push-sum only
+	var s = 0.0	//initial sum of each node for push-sum
+	var w = 1.0	//initial weight
+    var ratio = s/w	
+	var rumourCount = 0
+    var ratiosArray = new Array[Double](2)
+    ratiosArray(0) = 0
+    ratiosArray(1) = 0
+    
     if(topology.equals("3D") || topology.equals("imp3D")) {
         var coords = self.path.name.split(":")
         val x = coords(1).toInt
@@ -25,37 +33,31 @@ class GossipNode(topology : String) extends Actor {
     } else{
         s = self.path.name.substring(10).toDouble + 1.0
     }
-    var w = 1.0
-    var ratio = s/w
-	var rumourCount = 0
-    var ratiosArray = new Array[Double](2)
-    ratiosArray(0) = 0
-    ratiosArray(1) = 0
     
 	def receive = {
+		//For gossip
 		case `rumour` => {
-//			println(self.path.name + " received rumour.")
 			rumourCount = rumourCount + 1
-
-			if (rumourCount != 4){
+			if (rumourCount != 10){
 				sender ! nextNeighbour
 			} else {
-                println("Ratio: " + ratio)
                 sender ! done
                 context.stop(self)
             }
 		}
         
+		//For Push sum
         case pushSum(receivedS, receivedW) => {
-//            println(self.path.name + " received rumour.")
+        	
             rumourCount = rumourCount + 1
             s = s + receivedS
             w = w + receivedW
             ratio = s/w
             var oldRatio1 = ratiosArray(0)
             var oldRatio2 = ratiosArray(1)
-//            println("s: " + s + " w:" + w + " ratio: " + ratio + " old1: " + oldRatio1 + " old2: " + oldRatio2 + "\n")
+//          println("s: " + s + " w:" + w + " ratio: " + ratio + " old1: " + oldRatio1 + " old2: " + oldRatio2 + "\n")
             
+            //if not converging
             if(Math.abs(ratio - oldRatio1) > math.pow(10, -10) || Math.abs(ratio - oldRatio2) > math.pow(10, -10)) {
                 if (rumourCount % 2 == 0) {
                     ratiosArray(0) = ratio
@@ -87,7 +89,6 @@ class MasterNode(numberOfNodes : Int, topology : String, algo : String) extends 
 	buildTopology()    
 	val startTime = System.currentTimeMillis
 	println("Start time: " + startTime)
-	println("inside master")
 	def receive = {
 		case `execute` => {
 			//pick one random actor and start rumor.
