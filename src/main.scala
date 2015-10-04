@@ -9,6 +9,7 @@ case object rumour
 case object execute
 case object nextNeighbour
 case class pushSum(s :Double, w :Double)
+case object done
 
 class GossipNode(topology : String) extends Actor {
 	val log = Logging(context.system, this)
@@ -33,25 +34,29 @@ class GossipNode(topology : String) extends Actor {
     
 	def receive = {
 		case `rumour` => {
-			println(self.path.name + " received rumour.")
+//			println(self.path.name + " received rumour.")
 			rumourCount = rumourCount + 1
 
 			if (rumourCount != 4){
 				sender ! nextNeighbour
-			}
+			} else {
+                println("Ratio: " + ratio)
+                sender ! done
+                context.stop(self)
+            }
 		}
         
         case pushSum(receivedS, receivedW) => {
-            println(self.path.name + " received rumour.")
+//            println(self.path.name + " received rumour.")
             rumourCount = rumourCount + 1
             s = s + receivedS
             w = w + receivedW
             ratio = s/w
             var oldRatio1 = ratiosArray(0)
             var oldRatio2 = ratiosArray(1)
-            println("s: " + s + " w:" + w + " ratio: " + ratio + " old1: " + oldRatio1 + " old2: " + oldRatio2 + "\n")
+//            println("s: " + s + " w:" + w + " ratio: " + ratio + " old1: " + oldRatio1 + " old2: " + oldRatio2 + "\n")
             
-            if(Math.abs(ratio - oldRatio1) > math.pow(10, -1) || Math.abs(ratio - oldRatio2) > math.pow(10, -1)) {
+            if(Math.abs(ratio - oldRatio1) > math.pow(10, -10) || Math.abs(ratio - oldRatio2) > math.pow(10, -10)) {
                 if (rumourCount % 2 == 0) {
                     ratiosArray(0) = ratio
                 } else {
@@ -61,7 +66,9 @@ class GossipNode(topology : String) extends Actor {
                 w = w/2
                 sender ! pushSum(s, w)
             } else {
-                println("terminated")
+                println("Ratio: " + ratio)
+                sender ! done
+                context.stop(self)
             }
         }
 	}
@@ -73,14 +80,13 @@ class MasterNode(numberOfNodes : Int, topology : String, algo : String) extends 
 	//For 3D grid, we need to round up to the nearest cube of a number. 
 	//I'm finding the cube root and rounding up to get no. of rows in one dimension. 
 	var cbrt = math.cbrt(numberOfNodes)
-	println(cbrt)
-	cbrt = math.ceil(cbrt) 
-	println(cbrt)
+	cbrt = math.ceil(cbrt)
 	var nodesArray3D = Array.ofDim[ActorRef](cbrt.toInt, cbrt.toInt, cbrt.toInt)
 	
 	val system = ActorSystem("HelloSystem")
 	buildTopology()    
-
+	val startTime = System.currentTimeMillis
+	println("Start time: " + startTime)
 	println("inside master")
 	def receive = {
 		case `execute` => {
@@ -93,7 +99,7 @@ class MasterNode(numberOfNodes : Int, topology : String, algo : String) extends 
             }
             
             if(algo.equals("gossip")) {
-                randomActor ! rumour    
+                randomActor ! rumour
             } else {
                 randomActor ! pushSum(0,0)
             }
@@ -108,6 +114,13 @@ class MasterNode(numberOfNodes : Int, topology : String, algo : String) extends 
         case pushSum(receivedS, receivedW) => {
             var randomNeighbor = fetchNeighbour(sender)
             randomNeighbor ! pushSum(receivedS, receivedW)
+        }
+        
+        case `done` => {
+        	val endTime = System.currentTimeMillis
+        	val timeTaken = endTime - startTime
+        	println("Time taken :" + timeTaken)
+        	context.system.shutdown()        	
         }
 	}
     
@@ -126,7 +139,7 @@ class MasterNode(numberOfNodes : Int, topology : String, algo : String) extends 
                         var gossipNode = system.actorOf(Props(new GossipNode(topology)), name = "gossipNode:" + i + ":" + j + ":" + k + ":" + nodeCount)
                         nodesArray3D(i)(j)(k) = gossipNode
                         nodeCount = nodeCount + 1
-                        println(gossipNode.path.name)
+//                        println(gossipNode.path.name)
                     }
                 }
             }
@@ -200,6 +213,7 @@ object Main {
 		var numOfNodes = args(0).toInt
         var topology = args(1)
         var algo = args(2)
+        println("number of Node:" + numOfNodes + " topology:" + topology + " algo:" + algo)
 	    val system = ActorSystem("HelloSystem")
 		var masterNode = system.actorOf(Props(new MasterNode(numOfNodes, topology, algo)), name = "master")
 		masterNode ! execute
