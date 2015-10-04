@@ -8,27 +8,65 @@ import scala.util.Random
 case object rumour
 case object execute
 case object nextNeighbour
+case class pushSum(s :Double, w :Double)
 
-/**
- * @author Alok
- */
-class GossipNode extends Actor {
+class GossipNode(topology : String) extends Actor {
 	val log = Logging(context.system, this)
+    var s = 0.0
+    if(topology.equals("3D") || topology.equals("imp3D")) {
+        val x = self.path.name.substring(10, 11).toInt
+        val y = self.path.name.substring(11, 12).toInt
+        val z = self.path.name.substring(12, 13).toInt
+        
+        s = z + y*2 + x*4
+        s = s.toDouble
+    } else{
+        s = self.path.name.substring(10, 11).toDouble
+    }
+    var w = 1.0
+    var ratio = s/w
 	var rumourCount = 0
+    var ratiosArray = new Array[Double](2)
+    ratiosArray(0) = 0
+    ratiosArray(1) = 0
+    
 	def receive = {
 		case `rumour` => {
 			println(self.path.name + " received rumour.")
 			rumourCount = rumourCount + 1
 
 			if (rumourCount != 4){
-				//send to a neighbor
 				sender ! nextNeighbour
 			}
 		}
+        
+        case pushSum(receivedS, receivedW) => {
+            println(self.path.name + " received rumour.")
+            rumourCount = rumourCount + 1
+            s = s + receivedS
+            w = w + receivedW
+            ratio = s/w
+            var oldRatio1 = ratiosArray(0)
+            var oldRatio2 = ratiosArray(1)
+            println("s: " + s + " w:" + w + " ratio: " + ratio + " old1: " + oldRatio1 + " old2: " + oldRatio2 + "\n")
+            
+            if(Math.abs(ratio - oldRatio1) > math.pow(10, -10) || Math.abs(ratio - oldRatio2) > math.pow(10, -10)) {
+                if (rumourCount % 2 == 0) {
+                    ratiosArray(0) = ratio
+                } else {
+                    ratiosArray(1) = ratio
+                }
+                s = s/2
+                w = w/2
+                sender ! pushSum(s, w)
+            } else {
+                println("terminated")
+            }
+        }
 	}
 }
 
-class MasterNode(numberOfNodes : Int) extends Actor {
+class MasterNode(numberOfNodes : Int, topology : String, algo : String) extends Actor {
 	var nodesArray = new Array[ActorRef](numberOfNodes)
 
 	//For 3D grid, we need to round up to the nearest cube of a number. 
@@ -40,17 +78,24 @@ class MasterNode(numberOfNodes : Int) extends Actor {
 	var nodesArray3D = Array.ofDim[ActorRef](cbrt.toInt, cbrt.toInt, cbrt.toInt)
 	
 	val system = ActorSystem("HelloSystem")
-	var topology = "line"
 	buildTopology()    
 
 	println("inside master")
 	def receive = {
 		case `execute` => {
 			//pick one random actor and start rumor.
-//			val randomActor = Random.shuffle(nodesArray.toList).head
-            val randomActor = Random.shuffle(nodesArray3D.toList).head.toList.head.toList.head
-            println(randomActor.path.name)
-//			randomActor ! rumour
+            var randomActor : ActorRef = null
+            if(topology.equals("line") || topology.equals("full")) {
+                randomActor = Random.shuffle(nodesArray.toList).head
+            } else if(topology.equals("3D") || topology.equals("imp3D")) {
+                randomActor = Random.shuffle(nodesArray3D.toList).head.toList.head.toList.head
+            }
+            
+            if(algo.equals("gossip")) {
+                randomActor ! rumour    
+            } else {
+                randomActor ! pushSum(0,0)
+            }
 		}
 
 		case `nextNeighbour` => {
@@ -58,20 +103,25 @@ class MasterNode(numberOfNodes : Int) extends Actor {
 			var randomNeighbor = fetchNeighbour(sender)
 			randomNeighbor ! rumour
 		}
+        
+        case pushSum(receivedS, receivedW) => {
+            var randomNeighbor = fetchNeighbour(sender)
+            randomNeighbor ! pushSum(receivedS, receivedW)
+        }
 	}
     
    def buildTopology() : Unit = {
-        if(topology.equals("line")) {
+        if(topology.equals("line") || topology.equals("full")) {
             for ( i <- 0 to numberOfNodes - 1) {
-                var gossipNode = system.actorOf(Props[GossipNode], name = "gossipNode" + i)
+                var gossipNode = system.actorOf(Props(new GossipNode(topology)), name = "gossipNode" + i)
                 // add nodes to an array
                 nodesArray(i) = gossipNode
             }
         } else if (topology.equals("3D") || topology.equals("imp3D")){
-            for(i<- 0 to cbrt.toInt-1){
-                for(j <- 0 to cbrt.toInt-1){
-                    for(k <- 0 to cbrt.toInt-1){
-                        var gossipNode = system.actorOf(Props[GossipNode], name = "gossipNode" + i + j+ k)
+            for(i<- 0 to cbrt.toInt - 1) {
+                for(j <- 0 to cbrt.toInt - 1) {
+                    for(k <- 0 to cbrt.toInt - 1) {
+                        var gossipNode = system.actorOf(Props(new GossipNode(topology)), name = "gossipNode" + i + j + k)
                         nodesArray3D(i)(j)(k) = gossipNode
                         println(gossipNode.path.name)
                     }
@@ -102,8 +152,8 @@ class MasterNode(numberOfNodes : Int) extends Actor {
             var adjacencyArray = nodesArray.filter { (x:ActorRef) => x != node }
             val randomNeighbor = Random.shuffle(adjacencyArray.toList).head
             return randomNeighbor
-        } else if (topology.equals("3D")) {
-            var adjacencyArray = new Array[ActorRef](6)
+        } else if (topology.equals("3D") || topology.equals("imp3D")) {
+            var adjacencyArray = new Array[ActorRef](7)
             var nodeName = node.path.name
             var curX = nodeName.substring(10, 11).toInt
             var curY = nodeName.substring(11, 12).toInt
@@ -128,6 +178,9 @@ class MasterNode(numberOfNodes : Int) extends Actor {
             if(curZ + 1 < cbrt) {
                 adjacencyArray(5) = nodesArray3D(curX)(curY)(curZ + 1)
             }
+            if(topology.equals("imp3D")) {
+                adjacencyArray(6) = Random.shuffle(nodesArray3D.toList).head.toList.head.toList.head
+            }
             
             var randomNeighbor : ActorRef = null
             while(randomNeighbor == null) {
@@ -142,8 +195,10 @@ class MasterNode(numberOfNodes : Int) extends Actor {
 object Main {
 	def main(args: Array[String]) : Unit = {
 		var numOfNodes = args(0).toInt
-			val system = ActorSystem("HelloSystem")
-			var masterNode = system.actorOf(Props(new MasterNode(numOfNodes)), name = "master")
-			masterNode ! execute
+        var topology = args(1)
+        var algo = args(2)
+	    val system = ActorSystem("HelloSystem")
+		var masterNode = system.actorOf(Props(new MasterNode(numOfNodes, topology, algo)), name = "master")
+		masterNode ! execute
 	}
 }
