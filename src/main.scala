@@ -14,14 +14,15 @@ class GossipNode(topology : String) extends Actor {
 	val log = Logging(context.system, this)
     var s = 0.0
     if(topology.equals("3D") || topology.equals("imp3D")) {
-        val x = self.path.name.substring(10, 11).toInt
-        val y = self.path.name.substring(11, 12).toInt
-        val z = self.path.name.substring(12, 13).toInt
+        var coords = self.path.name.split(":")
+        val x = coords(1).toInt
+        val y = coords(2).toInt
+        val z = coords(3).toInt
+        val nodeCount = coords(4).toInt
         
-        s = z + y*2 + x*4
-        s = s.toDouble
+        s = nodeCount.toDouble + 1.0
     } else{
-        s = self.path.name.substring(10, 11).toDouble
+        s = self.path.name.substring(10).toDouble + 1.0
     }
     var w = 1.0
     var ratio = s/w
@@ -50,7 +51,7 @@ class GossipNode(topology : String) extends Actor {
             var oldRatio2 = ratiosArray(1)
             println("s: " + s + " w:" + w + " ratio: " + ratio + " old1: " + oldRatio1 + " old2: " + oldRatio2 + "\n")
             
-            if(Math.abs(ratio - oldRatio1) > math.pow(10, -10) || Math.abs(ratio - oldRatio2) > math.pow(10, -10)) {
+            if(Math.abs(ratio - oldRatio1) > math.pow(10, -1) || Math.abs(ratio - oldRatio2) > math.pow(10, -1)) {
                 if (rumourCount % 2 == 0) {
                     ratiosArray(0) = ratio
                 } else {
@@ -118,11 +119,13 @@ class MasterNode(numberOfNodes : Int, topology : String, algo : String) extends 
                 nodesArray(i) = gossipNode
             }
         } else if (topology.equals("3D") || topology.equals("imp3D")){
+            var nodeCount = 0
             for(i<- 0 to cbrt.toInt - 1) {
                 for(j <- 0 to cbrt.toInt - 1) {
                     for(k <- 0 to cbrt.toInt - 1) {
-                        var gossipNode = system.actorOf(Props(new GossipNode(topology)), name = "gossipNode" + i + j + k)
+                        var gossipNode = system.actorOf(Props(new GossipNode(topology)), name = "gossipNode:" + i + ":" + j + ":" + k + ":" + nodeCount)
                         nodesArray3D(i)(j)(k) = gossipNode
+                        nodeCount = nodeCount + 1
                         println(gossipNode.path.name)
                     }
                 }
@@ -154,10 +157,10 @@ class MasterNode(numberOfNodes : Int, topology : String, algo : String) extends 
             return randomNeighbor
         } else if (topology.equals("3D") || topology.equals("imp3D")) {
             var adjacencyArray = new Array[ActorRef](7)
-            var nodeName = node.path.name
-            var curX = nodeName.substring(10, 11).toInt
-            var curY = nodeName.substring(11, 12).toInt
-            var curZ = nodeName.substring(12, 13).toInt
+            var coords = node.path.name.split(":")
+            val curX = coords(1).toInt
+            val curY = coords(2).toInt
+            val curZ = coords(3).toInt
 
             //x-1, x+1, y-1, y+1, z-1, z+1
             if (curX - 1 >= 0) {
