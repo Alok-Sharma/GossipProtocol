@@ -4,12 +4,16 @@ import akka.actor.Props
 import akka.event.Logging
 import akka.actor.ActorRef
 import scala.util.Random
+import akka.actor.Props;
+import scala.concurrent.duration.Duration;
+import java.util.concurrent.TimeUnit;
 
 case object rumour
 case object execute
 case object nextNeighbour
 case class pushSum(s :Double, w :Double)
 case object done
+case object gossipActorDone
 
 class GossipNode(topology : String) extends Actor {
     
@@ -37,11 +41,13 @@ class GossipNode(topology : String) extends Actor {
 	def receive = {
 		//For gossip
 		case `rumour` => {
+			println(self.path.name)
 			rumourCount = rumourCount + 1
 			if (rumourCount != 10){
 				sender ! nextNeighbour
 			} else {
-                sender ! done
+				println(self.path.name + "reached count 10")
+				sender ! gossipActorDone
                 context.stop(self)
             }
 		}
@@ -80,6 +86,7 @@ class MasterNode(numberOfNodes : Int, topology : String, algo : String) extends 
     val system = ActorSystem("HelloSystem")
     var nodesArray : Array[ActorRef] = null
     var nodesArray3D : Array[Array[Array[ActorRef]]] = null
+    var gossipActorCount = 0 //keeps track of gossip nodes which have recieved the rumor 10 times
 
 	//For 3D grid, we need to round up to the nearest cube of a number. 
 	//I'm finding the cube root and rounding up to get no. of rows in one dimension. 
@@ -122,6 +129,21 @@ class MasterNode(numberOfNodes : Int, topology : String, algo : String) extends 
         	val timeTaken = endTime - startTime
         	println("Time taken :" + timeTaken)
         	context.system.shutdown()        	
+        }
+        
+        case `gossipActorDone` => {
+        	
+        	gossipActorCount = gossipActorCount+1 	//increase actor count
+        	
+        	if (gossipActorCount == numberOfNodes){
+        		val endTime = System.currentTimeMillis
+        		val timeTaken = endTime - startTime
+        		println("Time taken :" + timeTaken)
+        		context.system.shutdown()  
+        	} else {
+        		var randomNeighbor2 = fetchNeighbour(sender)
+				randomNeighbor2 ! rumour
+        	}
         }
 	}
     
