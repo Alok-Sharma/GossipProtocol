@@ -98,10 +98,18 @@ class MasterNode(numberOfNodes : Int, topology : String, algo : String) extends 
 	val startTime = System.currentTimeMillis
     def receive = {
 		case `execute` => {
+			//pick one random actor and start rumor.
+            var randomActor : ActorRef = null
+            if(topology.equals("line") || topology.equals("full")) {
+                randomActor = Random.shuffle(nodesArray.toList).head
+            } else if(topology.equals("3D") || topology.equals("imp3D")) {
+                randomActor = Random.shuffle(Random.shuffle(Random.shuffle(nodesArray3D.toList).head.toList).head.toList).head //Super shuffle
+            }
+            
             if(algo.equals("gossip")) {
-                fetchRandomActor() ! rumour
+                randomActor ! rumour
             } else {
-                fetchRandomActor() ! pushSum(0,0)
+                randomActor ! pushSum(0,0)
             }
 		}
 
@@ -124,6 +132,7 @@ class MasterNode(numberOfNodes : Int, topology : String, algo : String) extends 
         }
         
         case `gossipActorDone` => {
+        	
         	gossipActorCount = gossipActorCount+1 	//increase actor count
         	
         	if (gossipActorCount == numberOfNodes){
@@ -137,16 +146,6 @@ class MasterNode(numberOfNodes : Int, topology : String, algo : String) extends 
         	}
         }
 	}
-    
-    def fetchRandomActor() : ActorRef = {
-        var randomActor : ActorRef = null
-        if(topology.equals("line") || topology.equals("full")) {
-            randomActor = Random.shuffle(nodesArray.toList).head
-        } else if (topology.equals("3D") || topology.equals("imp3D")) {
-            randomActor = Random.shuffle(Random.shuffle(Random.shuffle(nodesArray3D.toList).head.toList).head.toList).head //Super shuffle
-        }
-        return randomActor
-    }
     
    def buildTopology() : Unit = {
         if(topology.equals("line") || topology.equals("full")) {
